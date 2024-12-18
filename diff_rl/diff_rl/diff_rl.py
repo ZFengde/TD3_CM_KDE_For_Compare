@@ -96,8 +96,7 @@ class TD3(OffPolicyAlgorithm):
         super()._setup_model() 
         self._create_aliases()
 
-        # TODO, check batch norm here
-        self.target_entropy = float(-np.prod(self.env.action_space.shape).astype(np.float32))
+        self.target_entropy = float(-np.sqrt(np.prod(self.env.action_space.shape)).astype(np.float32))
 
         self.actor_batch_norm_stats = get_parameters_by_name(self.actor, ["running_"])
         self.critic_batch_norm_stats = get_parameters_by_name(self.critic, ["running_"])
@@ -152,11 +151,11 @@ class TD3(OffPolicyAlgorithm):
 
             with th.no_grad():
                 # Select action according to policy and add clipped noise
-                noise = replay_data.actions.clone().data.normal_(0, self.target_policy_noise)
-                noise = noise.clamp(-self.target_noise_clip, self.target_noise_clip) # here is the [-1, 1] action
+                # noise = replay_data.actions.clone().data.normal_(0, self.target_policy_noise)
+                # noise = noise.clamp(-self.target_noise_clip, self.target_noise_clip) # here is the [-1, 1] action
 
-                next_actions = (self.consistency_model.sample(model=self.actor_target, state=replay_data.next_observations) + noise).clamp(-1, 1)
-                # next_actions = self.consistency_model.sample(model=self.actor_target, state=replay_data.next_observations)
+                # next_actions = (self.consistency_model.sample(model=self.actor_target, state=replay_data.next_observations) + noise).clamp(-1, 1)
+                next_actions = self.consistency_model.sample(model=self.actor_target, state=replay_data.next_observations)
                 next_log_prob = self.consistency_model.kde_prob(state=replay_data.next_observations, 
                                                                action=next_actions, 
                                                                model=self.actor)
@@ -200,10 +199,6 @@ class TD3(OffPolicyAlgorithm):
             actor_loss = (bc_losses["consistency_loss"] - min_qf_pi - ent_coef * log_prob).mean()
             # actor_loss = (bc_losses["consistency_loss"] - min_qf_pi).mean()
             actor_losses.append(actor_loss.item())
-
-            if th.isnan(actor_loss).any() or th.isinf(actor_loss).any():
-                a = 1
-                b = 1
                 
             # Optimize the actor
             self.actor.optimizer.zero_grad()
@@ -218,8 +213,7 @@ class TD3(OffPolicyAlgorithm):
 
         self.logger.record("train/n_updates", self._n_updates, exclude="tensorboard")
         self.logger.record("train/ent_coef", np.mean(ent_coefs))
-        if len(actor_losses) > 0:
-            self.logger.record("train/actor_loss", np.mean(actor_losses))
+        self.logger.record("train/actor_loss", np.mean(actor_losses))
         self.logger.record("train/critic_loss", np.mean(critic_losses))
         if len(ent_coef_losses) > 0:
             self.logger.record("train/ent_coef_loss", np.mean(ent_coef_losses))
