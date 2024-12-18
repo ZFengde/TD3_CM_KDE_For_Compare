@@ -164,8 +164,8 @@ class TD3(OffPolicyAlgorithm):
                 next_q_values = th.cat(self.critic_target(replay_data.next_observations, next_actions), dim=1)
                 next_q_values, _ = th.min(next_q_values, dim=1, keepdim=True)
                 # add entropy term
-                next_q_values = next_q_values - ent_coef * next_log_prob
-                # next_q_values = next_q_values
+                # next_q_values = next_q_values - ent_coef * next_log_prob
+                next_q_values = next_q_values
                 target_q_values = replay_data.rewards + (1 - replay_data.dones) * self.gamma * next_q_values
 
             # Get current Q-values estimates for each critic network
@@ -196,8 +196,8 @@ class TD3(OffPolicyAlgorithm):
 
             q_values_pi = th.cat(self.critic(replay_data.observations, sampled_action), dim=1)
             min_qf_pi, _ = th.min(q_values_pi, dim=1, keepdim=True)
-            actor_loss = (bc_losses["consistency_loss"] - min_qf_pi - ent_coef * log_prob).mean()
-            # actor_loss = (bc_losses["consistency_loss"] - min_qf_pi).mean()
+            # actor_loss = (bc_losses["consistency_loss"] - min_qf_pi - ent_coef * log_prob).mean()
+            actor_loss = (bc_losses["consistency_loss"] - min_qf_pi).mean()
             actor_losses.append(actor_loss.item())
                 
             # Optimize the actor
